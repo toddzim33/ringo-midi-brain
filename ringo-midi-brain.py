@@ -456,22 +456,53 @@ class DummyOut:
         pass
 
 
-def open_output(fragment, label):
-    ports = list_outputs()
-    idx = find_port(ports, fragment)
-    if idx is not None:
-        out = rtmidi.MidiOut()
-        out.open_port(idx)
-        log.info(f"{label}: {ports[idx]}")
-        return out
-    if IS_WINDOWS:
-        log.warning(f"{label}: '{fragment}' not found -- messages will be dropped")
-        return DummyOut()
-    out = rtmidi.MidiOut()
-    log.warning(f"{label}: '{fragment}' not found -- virtual port")
-    out.open_virtual_port(f"ringo-{label}")
-    return out
-    return out
+class LazyMidiOut:
+    """MIDI output that auto-connects when the device appears.
+
+    If the target port isn't found at construction time, silently drops
+    messages and retries port discovery every 5 seconds on the next send.
+    Works on both Linux (no virtual-port fallback needed) and Windows.
+    """
+    def __init__(self, fragment, label):
+        self._fragment = fragment
+        self._label = label
+        self._out = None
+        self._last_scan = 0.0
+        self._lock = threading.Lock()
+        self._try_connect()
+
+    def _try_connect(self):
+        ports = list_outputs()
+        idx = find_port(ports, self._fragment)
+        if idx is not None:
+            out = rtmidi.MidiOut()
+            out.open_port(idx)
+            self._out = out
+            log.info(f"{self._label}: {ports[idx]}")
+
+    def send_message(self, data):
+        with self._lock:
+            if self._out is None:
+                now = time.time()
+                if now - self._last_scan >= 5.0:
+                    self._last_scan = now
+                    self._try_connect()
+            if self._out is not None:
+                try:
+                    self._out.send_message(data)
+                except Exception as e:
+                    log.warning(f"{self._label}: send failed ({e}), will reconnect")
+                    try:
+                        self._out.close_port()
+                    except Exception:
+                        pass
+                    self._out = None
+
+    def close_port(self):
+        with self._lock:
+            if self._out is not None:
+                self._out.close_port()
+                self._out = None
 
 
 class RawMidiOut:
@@ -834,10 +865,10 @@ def main():
         log.info(f"MIDI outputs: {list_outputs()}")
 
     # --- Outputs (opened first so OSC handler can reference them) ---
-    hxstomp = open_output(PORT_HXSTOMP, 'hxstomp')
-    ve500   = open_output(PORT_VE500,   've500')
+    hxstomp = LazyMidiOut(PORT_HXSTOMP, 'hxstomp')
+    ve500   = LazyMidiOut(PORT_VE500,   've500')
     qlc     = open_qlc_bridge()
-    mox_out = open_output(PORT_MOX6,    'mox_out')  # to sync MOX6 from BandHelper/OSC
+    mox_out = LazyMidiOut(PORT_MOX6,    'mox_out')  # to sync MOX6 from BandHelper/OSC
 
     global CHASER_DATA
     CHASER_DATA = _parse_chaser_data()
@@ -926,10 +957,10 @@ def main():
         if midi_in_bh:
             midi_in_bh.close_port()
             del midi_in_bh
-        del hxstomp
-        del ve500
+        hxstomp.close_port()
+        ve500.close_port()
         qlc.close()
-        del mox_out
+        mox_out.close_port()
 
 
 if __name__ == '__main__':
