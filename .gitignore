@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# System
+.nvm/
+.npm/
+.cache/
+.local/
+.config/
+.claude/
+.bash_history
+.bashrc
+.profile
+.bash_logout
+
+# Large binaries / media
+*.iso
+*.img
+*.tar
+*.zip
+*.gz
+
+# QLC+ runtime files
+QLC+/autosave/
+QLC+/*.bak
+.qlcplus/
+
+# Logs
+*.log

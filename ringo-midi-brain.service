@@ -1,0 +1,16 @@
+[Unit]
+Description=Ringo MIDI Brain (Hooligan Soup)
+After=sound.target qlcplus-headless.service rtpmidid.service
+Wants=qlcplus-headless.service rtpmidid.service
+
+[Service]
+Type=simple
+User=toddz
+ExecStart=/usr/bin/python3 /usr/local/bin/ringo-midi-brain.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=QLC+ Lighting Controller (headless)
+After=sound.target
+
+[Service]
+Type=simple
+User=toddz
+Environment=QT_QPA_PLATFORM=offscreen
+ExecStart=/usr/bin/qlcplus --web --nowm --nogui --operate --open /home/toddz/QLC+/Hooligan MASTER.qxw
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

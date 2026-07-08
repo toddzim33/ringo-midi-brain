@@ -1,0 +1,5 @@
+# Prevent ftdi_sio from binding to the DMX dongle so QLC+ can use libftdi directly
+ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="BG00DPCW", RUN+="/bin/sh -c 'echo -n %k:1.0 > /sys/bus/usb/drivers/ftdi_sio/unbind 2>/dev/null || true'"
+
+# Restart QLC+ when DMX dongle appears so it opens the device via libftdi
+ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="BG00DPCW", RUN+="/bin/systemctl --no-block restart qlcplus-headless.service"
