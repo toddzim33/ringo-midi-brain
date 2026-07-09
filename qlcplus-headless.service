@@ -6,7 +6,7 @@ After=sound.target
 Type=simple
 User=toddz
 Environment=QT_QPA_PLATFORM=offscreen
-ExecStart=/usr/bin/qlcplus --web --nowm --nogui --operate --open /home/toddz/QLC+/Hooligan MASTER.qxw
+ExecStart=/usr/bin/qlcplus --web --nowm --nogui --operate --open "/home/toddz/QLC+/Hooligan MASTER.qxw"
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
