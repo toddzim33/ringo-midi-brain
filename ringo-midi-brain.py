@@ -188,7 +188,7 @@ QLC_NOTE_BASE_SCENE       = 83
 QLC_NOTE_BLACKOUT         = 84
 QLC_NOTE_KILL_ALL         = 105
 
-VELOCITY_HARD = 40  # above this = hard press
+VELOCITY_HARD = 80  # above this = hard press
 
 # ---------------------------------------------------------------------------
 # QLC+ Simple Desk DMX lookup: MIDI note → {qlc_channel(1-indexed): value}
@@ -641,17 +641,9 @@ def _qlc_send(messages):
                     pass
                 _qlc_ws = None
 
-_KILL_NOTES = {68, 89}  # QLC+ "Kill Functions" buttons
-
-
 def qlc_fire_dmx(note):
     """Set DMX scene by note. Only sends channels that changed from current state."""
     global _qlc_dmx_state
-    if note in _KILL_NOTES:
-        qlc_stop_chaser()
-        qlc_blackout_dmx()
-        log.info(f"qlc_fire_dmx: note {note} -> kill/blackout")
-        return
     scene = SCENE_DMX.get(note, {})
     if not scene:
         log.warning(f"qlc_fire_dmx: no DMX data for note {note}")
@@ -805,16 +797,16 @@ def process_note_on(note, velocity, qlc):
     if note == NOTE_PREV_SCENE:
         lighting_kill_unblackout(qlc)
         ga = (ga - 1) % 10
-        qq = current_ls + ga
-        qlc_fire(qlc, qq)
-        log.info(f"PREV SCENE -> note {qq}")
+        gb = ga
+        qlc_fire_scene_and_chase(current_ls + ga, current_lc + gb)
+        log.info(f"PREV SCENE -> ls={current_ls+ga} lc={current_lc+gb}")
 
     elif note == NOTE_NEXT_SCENE:
         lighting_kill_unblackout(qlc)
         ga = (ga + 1) % 10
-        qq = current_ls + ga
-        qlc_fire(qlc, qq)
-        log.info(f"NEXT SCENE -> note {qq}")
+        gb = ga
+        qlc_fire_scene_and_chase(current_ls + ga, current_lc + gb)
+        log.info(f"NEXT SCENE -> ls={current_ls+ga} lc={current_lc+gb}")
 
     elif note == NOTE_SCENE_CHORD:
         lighting_kill_unblackout(qlc)
@@ -831,16 +823,14 @@ def process_note_on(note, velocity, qlc):
     elif note == NOTE_PREV_CHASE:
         lighting_kill_unblackout(qlc)
         gb = (gb - 1) % 10
-        qq = current_lc + gb
-        qlc_fire(qlc, qq)
-        log.info(f"PREV CHASE -> note {qq}")
+        qlc_fire_scene_and_chase(current_ls + ga, current_lc + gb)
+        log.info(f"PREV CHASE -> lc={current_lc+gb} (scene stays ls={current_ls+ga})")
 
     elif note == NOTE_NEXT_CHASE:
         lighting_kill_unblackout(qlc)
         gb = (gb + 1) % 10
-        qq = current_lc + gb
-        qlc_fire(qlc, qq)
-        log.info(f"NEXT CHASE -> note {qq}")
+        qlc_fire_scene_and_chase(current_ls + ga, current_lc + gb)
+        log.info(f"NEXT CHASE -> lc={current_lc+gb} (scene stays ls={current_ls+ga})")
 
     elif note == NOTE_BLACKOUT:
         blackout_active = not blackout_active
