@@ -835,6 +835,7 @@ def process_note_on(note, velocity, qlc):
     elif note == NOTE_BLACKOUT:
         blackout_active = not blackout_active
         if blackout_active:
+            qlc_stop_chaser()
             qlc_blackout_dmx()
         else:
             qlc_fire_dmx(current_ls + ga)
