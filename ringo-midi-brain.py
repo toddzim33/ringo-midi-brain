@@ -42,6 +42,7 @@ import logging
 import sys
 import platform
 import threading
+import queue as _queue
 
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import ThreadingOSCUDPServer
@@ -419,6 +420,8 @@ blackout_active = False
 _chaser_stop   = threading.Event()
 _chaser_thread = None
 
+_note_q = _queue.Queue(maxsize=32)  # MIDI events; main loop never blocks
+
 
 # ---------------------------------------------------------------------------
 # Port helpers
@@ -611,7 +614,7 @@ def _qlc_connect():
     """Open a fresh QLC+ WebSocket and configure IO. Returns ws or None."""
     import websocket as _wsmod
     try:
-        ws = _wsmod.create_connection("ws://localhost:9999/qlcplusWS", timeout=5)
+        ws = _wsmod.create_connection("ws://localhost:9999/qlcplusWS", timeout=2)
         ws.send("QLC+IO|INPUT|0|MIDI|1")
         ws.send("QLC+IO|OUTPUT|0|DMX USB|0")
         log.info("QLC+ WebSocket connected, IO configured")
@@ -623,7 +626,10 @@ def _qlc_connect():
 def _qlc_send(messages):
     """Send messages over persistent QLC+ WS; reconnects once on failure."""
     global _qlc_ws
-    with _qlc_lock:
+    if not _qlc_lock.acquire(timeout=3.0):
+        log.warning("_qlc_send: lock timeout, dropping messages")
+        return
+    try:
         for attempt in range(2):
             if _qlc_ws is None:
                 _qlc_ws = _qlc_connect()
@@ -640,6 +646,8 @@ def _qlc_send(messages):
                 except Exception:
                     pass
                 _qlc_ws = None
+    finally:
+        _qlc_lock.release()
 
 def qlc_fire_dmx(note):
     """Set DMX scene by note. Only sends channels that changed from current state."""
@@ -680,11 +688,11 @@ def qlc_fire(qlc, note):
     qlc_start_chaser(note)  # no-op if note has no animated sequence
 
 def qlc_stop_chaser():
-    """Signal any running chaser thread to stop and wait for it to exit."""
+    """Signal any running chaser thread to stop and wait briefly for it to exit."""
     global _chaser_thread
     _chaser_stop.set()
     if _chaser_thread is not None and _chaser_thread.is_alive():
-        _chaser_thread.join(timeout=0.5)
+        _chaser_thread.join(timeout=0.1)  # 100ms max — chaser wakes immediately on stop event
     _chaser_thread = None
 
 
@@ -843,6 +851,23 @@ def process_note_on(note, velocity, qlc):
 
 
 # ---------------------------------------------------------------------------
+# Note event worker — processes queued MIDI events so the poll loop never blocks
+# ---------------------------------------------------------------------------
+
+def _note_worker(qlc, hxstomp, ve500, mox_out):
+    while True:
+        ev = _note_q.get()
+        try:
+            etype = ev[0]
+            if etype == 'note':
+                process_note_on(ev[1], ev[2], qlc)
+            elif etype == 'pc':
+                process_pc(ev[1], hxstomp, ve500, qlc, ev[2])
+        except Exception as e:
+            log.error(f"note worker error: {e}", exc_info=True)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -864,6 +889,8 @@ def main():
     global CHASER_DATA
     CHASER_DATA = _parse_chaser_data()
     threading.Thread(target=setup_qlc_midi, daemon=True).start()
+    threading.Thread(target=_note_worker, args=(qlc, hxstomp, ve500, mox_out),
+                     daemon=True, name='note-worker').start()
 
     # --- OSC server: BandHelper sends /pc <int> to port 9000 ---
     def _osc_pc(address, *args):
@@ -921,9 +948,11 @@ def main():
                     channel = (data[0] & 0x0F) + 1
                     if channel == 1:
                         if status == 0xC0 and len(data) >= 2:
-                            process_pc(data[1], hxstomp, ve500, qlc)
+                            try: _note_q.put_nowait(('pc', data[1], None))
+                            except _queue.Full: log.warning("note queue full, dropping MOX6 PC")
                         elif status == 0x90 and len(data) >= 3 and data[2] > 0:
-                            process_note_on(data[1], data[2], qlc)
+                            try: _note_q.put_nowait(('note', data[1], data[2]))
+                            except _queue.Full: log.warning("note queue full, dropping note")
 
             # BandHelper RTP MIDI → route everywhere including MOX6
             if midi_in_bh:
@@ -934,7 +963,8 @@ def main():
                         status  = data[0] & 0xF0
                         channel = (data[0] & 0x0F) + 1
                         if channel == 1 and status == 0xC0 and len(data) >= 2:
-                            process_pc(data[1], hxstomp, ve500, qlc, mox_out)
+                            try: _note_q.put_nowait(('pc', data[1], mox_out))
+                            except _queue.Full: log.warning("note queue full, dropping BH PC")
 
             time.sleep(0.001)
 
