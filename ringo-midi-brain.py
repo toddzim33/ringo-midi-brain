@@ -411,8 +411,8 @@ def send_mox_master(mox_out, pp):
 def setup_qlc_midi():
     """Establish persistent QLC+ WebSocket and configure IO.
 
-    Retries for up to 25s on cold boot. _qlc_connect() handles IO setup
-    and is called again automatically if the connection is ever lost.
+    Retries for up to 25s on cold boot. Called again automatically if
+    the connection is ever lost.
     """
     global _qlc_ws
     deadline = time.time() + 25
@@ -434,13 +434,12 @@ _qlc_ws   = None
 _qlc_lock = threading.Lock()
 
 def _qlc_connect():
-    """Open a fresh QLC+ WebSocket and configure IO. Returns ws or None."""
+    """Open a fresh QLC+ WebSocket. IO is left as-is from the workspace config.
+    Sending QLC+IO commands here was found to break the DMX USB output plugin."""
     import websocket as _wsmod
     try:
         ws = _wsmod.create_connection("ws://localhost:9999/qlcplusWS", timeout=2)
-        ws.send("QLC+IO|INPUT|0|MIDI|1")
-        ws.send("QLC+IO|OUTPUT|0|DMX USB|0")
-        log.info("QLC+ WebSocket connected, IO configured")
+        log.info("QLC+ WebSocket connected")
         return ws
     except Exception as e:
         log.warning(f"QLC+ WS connect failed: {e}")
