@@ -243,6 +243,8 @@ ga = 0   # scene index within current_scenes
 gb = 0   # chase index within current_chases
 
 _current_fn_id = None   # QLC+ function ID currently running (None = nothing)
+_last_blackout_t = 0.0  # time of last BLACKOUT press, for debounce
+BLACKOUT_DEBOUNCE_S = 0.4
 
 _note_q = _queue.Queue(maxsize=32)  # MIDI events; main loop never blocks
 
@@ -438,7 +440,7 @@ def _qlc_connect():
     Sending QLC+IO commands here was found to break the DMX USB output plugin."""
     import websocket as _wsmod
     try:
-        ws = _wsmod.create_connection("ws://localhost:9999/qlcplusWS", timeout=2)
+        ws = _wsmod.create_connection("ws://localhost:9999/qlcplusWS", timeout=0.4)
         log.info("QLC+ WebSocket connected")
         return ws
     except Exception as e:
@@ -545,10 +547,6 @@ def process_pc(pp, hxstomp, ve500, qlc, mox_out=None):
     if mox_out is not None:
         send_mox_master(mox_out, pp)
 
-    # Start the mood's default first chase
-    qlc_fn_stop_current()
-    qlc_fn_start_note(current_chases[0])
-
     # Mirror Stomp PC + CC 69 value=0 to QLC+
     qlc_stomp_mirror(qlc, rr)
 
@@ -597,6 +595,12 @@ def process_note_on(note, velocity):
         log.info(f"NEXT CHASE -> note {current_chases[gb]}")
 
     elif note == NOTE_BLACKOUT:
+        global _last_blackout_t
+        now = time.time()
+        if now - _last_blackout_t < BLACKOUT_DEBOUNCE_S:
+            log.info("BLACKOUT debounced")
+            return
+        _last_blackout_t = now
         if _current_fn_id == QLC_FN_BLACKOUT:
             # Toggle off: resume last chase
             qlc_fn_stop_current()
@@ -704,13 +708,12 @@ def main():
                 if data:
                     status  = data[0] & 0xF0
                     channel = (data[0] & 0x0F) + 1
-                    if channel == 1:
-                        if status == 0xC0 and len(data) >= 2:
-                            try: _note_q.put_nowait(('pc', data[1], None))
-                            except _queue.Full: log.warning("note queue full, dropping MOX6 PC")
-                        elif status == 0x90 and len(data) >= 3 and data[2] > 0:
-                            try: _note_q.put_nowait(('note', data[1], data[2]))
-                            except _queue.Full: log.warning("note queue full, dropping note")
+                    if status == 0xC0 and channel == 1 and len(data) >= 2:
+                        try: _note_q.put_nowait(('pc', data[1], None))
+                        except _queue.Full: log.warning("note queue full, dropping MOX6 PC")
+                    elif status == 0x90 and len(data) >= 3 and data[2] > 0:
+                        try: _note_q.put_nowait(('note', data[1], data[2]))
+                        except _queue.Full: log.warning("note queue full, dropping note")
 
             # BandHelper RTP MIDI → route everywhere including MOX6
             if midi_in_bh:
