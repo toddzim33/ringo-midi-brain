@@ -505,6 +505,26 @@ def qlc_fn_start_note(note):
         return
     qlc_fn_start(fn_id)
 
+def qlc_fn_switch(fn_id):
+    """Stop current function and start fn_id in one WS batch — no gap between them."""
+    global _current_fn_id
+    msgs = []
+    old = _current_fn_id
+    if old is not None:
+        msgs.append(f"QLC+API|setFunctionStatus|{old}|0")
+    msgs.append(f"QLC+API|setFunctionStatus|{fn_id}|1")
+    _qlc_send(msgs)
+    _current_fn_id = fn_id
+    log.info(f"fn switch {old} -> {fn_id}")
+
+def qlc_fn_switch_note(note):
+    """Like qlc_fn_switch but resolves fn_id from MIDI note."""
+    fn_id = NOTE_FN.get(note)
+    if fn_id is None:
+        log.warning(f"no fn for note {note}")
+        return
+    qlc_fn_switch(fn_id)
+
 def qlc_stomp_mirror(qlc, rr):
     """Mirror Stomp PC + CC 69 value=0 (100ms delay) to QLC+ -- matches Bome Outgoing2/3."""
     send_pc(qlc, 1, rr)
@@ -534,8 +554,8 @@ def process_pc(pp, hxstomp, ve500, qlc, mox_out=None):
     ls_notes, lc_notes = LIGHTING[mood]
     current_scenes = ls_notes if ls_notes is not None else lc_notes
     current_chases = lc_notes
-    ga = 0
-    gb = 0
+    ga = len(current_scenes) - 1  # first NEXT_SCENE plays index 0
+    gb = len(current_chases) - 1  # first NEXT_CHASE plays index 0
 
     # HX Stomp
     send_pc(hxstomp, 1, rr)
@@ -560,38 +580,32 @@ def process_note_on(note, velocity):
 
     if note == NOTE_PREV_SCENE:
         ga = (ga - 1) % len(current_scenes)
-        qlc_fn_stop_current()
-        qlc_fn_start_note(current_scenes[ga])
+        qlc_fn_switch_note(current_scenes[ga])
         log.info(f"PREV SCENE -> note {current_scenes[ga]}")
 
     elif note == NOTE_NEXT_SCENE:
         ga = (ga + 1) % len(current_scenes)
-        qlc_fn_stop_current()
-        qlc_fn_start_note(current_scenes[ga])
+        qlc_fn_switch_note(current_scenes[ga])
         log.info(f"NEXT SCENE -> note {current_scenes[ga]}")
 
     elif note == NOTE_SCENE_CHORD:
         fn_id = QLC_FN_BASE_SCENE if velocity > VELOCITY_HARD else QLC_FN_ALL_SCENE_CHASER
-        qlc_fn_stop_current()
-        qlc_fn_start(fn_id)
+        qlc_fn_switch(fn_id)
         log.info(f"SCENE CHORD vel={velocity} -> fn {fn_id}")
 
     elif note == NOTE_CHASE_CHORD:
         fn_id = QLC_FN_STROBE if velocity > VELOCITY_HARD else QLC_FN_ALL_CHASERS
-        qlc_fn_stop_current()
-        qlc_fn_start(fn_id)
+        qlc_fn_switch(fn_id)
         log.info(f"CHASE CHORD vel={velocity} -> fn {fn_id}")
 
     elif note == NOTE_PREV_CHASE:
         gb = (gb - 1) % len(current_chases)
-        qlc_fn_stop_current()
-        qlc_fn_start_note(current_chases[gb])
+        qlc_fn_switch_note(current_chases[gb])
         log.info(f"PREV CHASE -> note {current_chases[gb]}")
 
     elif note == NOTE_NEXT_CHASE:
         gb = (gb + 1) % len(current_chases)
-        qlc_fn_stop_current()
-        qlc_fn_start_note(current_chases[gb])
+        qlc_fn_switch_note(current_chases[gb])
         log.info(f"NEXT CHASE -> note {current_chases[gb]}")
 
     elif note == NOTE_BLACKOUT:
@@ -602,13 +616,10 @@ def process_note_on(note, velocity):
             return
         _last_blackout_t = now
         if _current_fn_id == QLC_FN_BLACKOUT:
-            # Toggle off: resume last chase
-            qlc_fn_stop_current()
-            qlc_fn_start_note(current_chases[gb])
+            qlc_fn_switch_note(current_chases[gb])
             log.info("BLACKOUT OFF")
         else:
-            qlc_fn_stop_current()
-            qlc_fn_start(QLC_FN_BLACKOUT)
+            qlc_fn_switch(QLC_FN_BLACKOUT)
             log.info("BLACKOUT ON")
 
 
