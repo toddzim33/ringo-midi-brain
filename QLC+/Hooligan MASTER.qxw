@@ -263,19 +263,19 @@
    <Direction>Forward</Direction>
    <RunOrder>Loop</RunOrder>
    <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
-   <Step Number="0" FadeIn="0" Hold="15000" FadeOut="0">176</Step>
-   <Step Number="1" FadeIn="0" Hold="15000" FadeOut="0">177</Step>
+   <Step Number="0" FadeIn="0" Hold="15000" FadeOut="0">45</Step>
+   <Step Number="1" FadeIn="0" Hold="15000" FadeOut="0">59</Step>
    <Step Number="2" FadeIn="0" Hold="15000" FadeOut="0">157</Step>
-   <Step Number="3" FadeIn="0" Hold="15000" FadeOut="0">178</Step>
+   <Step Number="3" FadeIn="0" Hold="15000" FadeOut="0">47</Step>
    <Step Number="4" FadeIn="0" Hold="15000" FadeOut="0">27</Step>
    <Step Number="5" FadeIn="0" Hold="15000" FadeOut="0">29</Step>
-   <Step Number="6" FadeIn="0" Hold="15000" FadeOut="0">179</Step>
+   <Step Number="6" FadeIn="0" Hold="15000" FadeOut="0">161</Step>
    <Step Number="7" FadeIn="0" Hold="15000" FadeOut="0">50</Step>
    <Step Number="8" FadeIn="0" Hold="15000" FadeOut="0">62</Step>
    <Step Number="9" FadeIn="0" Hold="15000" FadeOut="0">53</Step>
    <Step Number="10" FadeIn="0" Hold="15000" FadeOut="0">55</Step>
    <Step Number="11" FadeIn="0" Hold="15000" FadeOut="0">57</Step>
-   <Step Number="12" FadeIn="0" Hold="15000" FadeOut="0">180</Step>
+   <Step Number="12" FadeIn="0" Hold="15000" FadeOut="0">48</Step>
   </Function>
   <Function ID="1" Type="Scene" Name="Blue Wash">
    <Speed FadeIn="0" FadeOut="0" Duration="0"/>
