@@ -1,0 +1,9 @@
+[Unit]
+Description=Reconnect QLC+ after its FTDI DMX interface reappears
+After=qlcplus-headless.service
+
+[Service]
+Type=oneshot
+# At boot QLC+ may not be active yet; its normal startup will see the device.
+# During a live replug, restart the active instance so libusb reclaims FTDI.
+ExecStart=/usr/bin/systemctl try-restart qlcplus-headless.service

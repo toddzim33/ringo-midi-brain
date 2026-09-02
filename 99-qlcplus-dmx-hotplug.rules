@@ -1,0 +1,3 @@
+# QLC+ DMX USB interface (FTDI FT232R, VID:PID 0403:6001).
+# Ask systemd to refresh an already-running QLC+ when the device is added.
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="0403", ATTR{idProduct}=="6001", TAG+="systemd", ENV{SYSTEMD_WANTS}+="qlcplus-usb-hotplug.service"

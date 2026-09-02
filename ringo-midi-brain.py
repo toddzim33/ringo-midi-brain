@@ -19,9 +19,18 @@ Lighting mood → workspace note ranges (from VC button MIDI input assignments):
   Special:      All Scene Chaser=64  All Chasers=65  Strobe=66
                 Base Scene=67  Blackout=68
 
-VE-500 patch PC values (0-indexed):
-  U01 TZ BASE=0  U02 WET=1  U03 3PT UP=2  U04 3PT WRAP=3
-  U05 SHOUT=4    U06 RADIO=5  U07 LOW OCT=6  U08 LONG DLY=7
+VE-500 patch PC values (0-indexed) -- per-key scheme, 20 physical patches.
+Patch names are BASE/BIG/LNGDLY + chart key; BIG merges the old WET/3PT UP/
+3PT WRAP patches into one. SHOUT/RADIO/LOWOCT are key-independent.
+  U01 BASE-A=0    U02 BASE-B=1    U03 BASE-Bb=2   U04 BASE-C=3
+  U05 BASE-D=4    U06 BASE-E=5    U07 BASE-F=6    U08 BASE-F#=7
+  U09 BASE-G=8    U10 BIG-A=9     U11 BIG-C=10    U12 BIG-D=11
+  U13 BIG-E=12    U14 BIG-G=13    U15 BIG-Em=14   U16 LNGDLY-A=15
+  U17 LNGDLY-D=16 U18 SHOUT=17    U19 RADIO=18    U20 LOWOCT=19
+Source of truth for the name->key mapping: song_profile_assignments -
+CURRENT sheet's Vox Preset column. Patches are pre-tuned a semitone down
+on the VE-500 itself (band tunes down a semitone), so chart key == patch
+name key; no software transposition needed.
 
 HX Stomp: Regular=116  Clean=117  Metal=118
 
@@ -49,6 +58,7 @@ import sys
 import platform
 import threading
 import queue as _queue
+import re
 
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import ThreadingOSCUDPServer
@@ -78,6 +88,7 @@ else:
     BANDHELPER_RETRY_S = 15
 
 OSC_PORT = 9000  # BandHelper OSC -> brain
+PORT_SCAN_INTERVAL_S = 0.5  # detect USB/service re-enumeration quickly
 
 # ---------------------------------------------------------------------------
 # Lighting moods: (scene_notes, chase_notes)
@@ -97,7 +108,7 @@ LIGHTING = {
 # Keys: pp (0-indexed PC from MOX6)
 # Values: (song_name, mood, rr, ve_pc)
 #   rr = HX Stomp PC  (116=Regular 117=Clean 118=Metal)
-#   ve_pc = VE-500 PC (0=U01 TZ BASE ... 7=U08 LONG DLY)
+#   ve_pc = VE-500 PC, per-key scheme (see docstring at top of file)
 # ---------------------------------------------------------------------------
 def _song(lighting, vox_pc, rr, name):
     return (name, lighting, rr, vox_pc)
@@ -106,75 +117,92 @@ R  = 116  # Regular
 CL = 117  # Clean
 MT = 118  # Metal
 
-# vox PC shortcuts
-BASE = 0   # U01 TZ BASE
-WET  = 1   # U02 WET
-UP3  = 2   # U03 3PT UP
-WRAP = 3   # U04 3PT WRAP
-SHOUT= 4   # U05 SHOUT
-LOCT = 6   # U07 LOW OCT
-LDLY = 7   # U08 LONG DLY
+# vox PC shortcuts -- one per physical VE-500 patch (see docstring table)
+BASE_A   = 0
+BASE_B   = 1
+BASE_BB  = 2   # Bb
+BASE_C   = 3
+BASE_D   = 4
+BASE_E   = 5
+BASE_F   = 6
+BASE_FS  = 7   # F#
+BASE_G   = 8
+BIG_A    = 9
+BIG_C    = 10
+BIG_D    = 11
+BIG_E    = 12
+BIG_G    = 13
+BIG_EM   = 14  # Em
+LNGDLY_A = 15
+LNGDLY_D = 16
+SHOUT    = 17
+RADIO    = 18
+LOWOCT   = 19
 
 SONGS = {
-    1:  _song('High Energy', BASE, R,  'Rebel Yell'),
-    2:  _song('High Energy', BASE, R,  'Rebel Yell'),
-    3:  _song('Default',     BASE, R,  'Short Skirt Long Jacket'),
-    4:  _song('Floyd',       LDLY, R,  'Comfortably Numb'),
-    5:  _song('Default',     BASE, R,  'The Distance'),
-    6:  _song('Default',     BASE, R,  'I Will Survive'),
-    7:  _song('High Energy', BASE, R,  'Boys of Summer'),
-    8:  _song('Floyd',       BASE, R,  'Have A Cigar'),
-    # pp=9: LA Woman / Love Me Two Times share this slot -- same settings
-    9:  _song('Atmospheric', BASE, R,  'LA Woman / Love Me Two Times'),
-    10: _song('Atmospheric', WET,  R,  'Lost Together'),
-    11: _song('Atmospheric', WET,  R,  'Lovesong'),
-    12: _song('High Energy', BASE, R,  'Pump It Up'),
-    13: _song('Default',     BASE, R,  'White Wedding'),
-    14: _song('Default',     BASE, R,  'Bad Guy'),
-    16: _song('Floyd',       LDLY, R,  'Time'),
-    17: _song('Floyd',       LDLY, R,  'Time'),
-    18: _song('Floyd',       LDLY, R,  'Time'),
-    32: _song('Default',     UP3,  CL, 'American Girl'),
-    33: _song('Default',     BASE, R,  'Are You Gonna Be My Girl'),
-    34: _song('Default',     WRAP, R,  'Banditos'),
-    35: _song('Default',     WET,  R,  'Brown Sugar'),
-    36: _song('Default',     BASE, R,  'Courage'),
-    37: _song('Default',     BASE, R,  'Fifty Mission Cap'),
-    38: _song('Default',     BASE, R,  'Flagpole Sitta'),
-    39: _song('Default',     BASE, R,  'Fortunate Son'),
-    40: _song('Default',     WRAP, CL, 'Here Comes My Girl'),
-    41: _song('Default',     BASE, R,  'Hey Jealousy'),
-    42: _song('Default',     LOCT, R,  'La Grange'),
-    43: _song('Default',     BASE, R,  'Little Bones'),
-    44: _song('Default',     BASE, CL, "Runnin' Down A Dream"),
-    45: _song('Default',     BASE, CL, 'Santeria'),
-    46: _song('Default',     BASE, R,  'Take Me Out'),
-    47: _song('Default',     UP3,  R,  'The Boys Are Back In Town'),
-    48: _song('Default',     BASE, R,  'The Middle'),
-    49: _song('Default',     BASE, R,  'Three Pistols'),
-    50: _song('Default',     UP3,  R,  'You May Be Right'),
-    51: _song('Default',     BASE, R,  'You Wreck Me'),
-    52: _song('High Energy', BASE, R,  'All The Small Things'),
-    53: _song('High Energy', BASE, MT, 'Basket Case'),
-    54: _song('High Energy', SHOUT,R,  'Blitzkrieg Bop'),
-    55: _song('High Energy', BASE, R,  'Breaking The Law'),
-    56: _song('High Energy', SHOUT,R,  'Fight For Your Right To Party'),
-    57: _song('High Energy', BASE, R,  'Flavor Of The Weak'),
-    58: _song('High Energy', SHOUT,R,  'I Wanna Be Sedated'),
-    59: _song('High Energy', BASE, R,  'Mrs Robinson'),
-    60: _song('High Energy', SHOUT,MT, 'One Eyed Bastard'),
-    61: _song('High Energy', BASE, R,  'Ring Of Fire'),
-    62: _song('High Energy', BASE, MT, 'Seek And Destroy'),
-    63: _song('High Energy', SHOUT,R,  'The Rock Show'),
-    64: _song('High Energy', BASE, MT, 'Welcome To Paradise'),
-    65: _song('High Energy', BASE, R,  "What's My Age Again"),
-    66: _song('High Energy', WRAP, R,  'Young Lust'),
-    67: _song('Atmospheric', BASE, R,  'Red House'),
-    68: _song('Atmospheric', WET,  R,  'Roadhouse Blues'),
-    69: _song('Purple Rain', LDLY, R,  'Purple Rain'),
+    1:  _song('High Energy', BASE_A,   R,  'Rebel Yell'),
+    2:  _song('High Energy', BASE_A,   R,  'Rebel Yell'),
+    3:  _song('Default',     BASE_D,   R,  'Short Skirt Long Jacket'),
+    4:  _song('Floyd',       LNGDLY_D, R,  'Comfortably Numb'),
+    5:  _song('Default',     BASE_D,   R,  'The Distance'),
+    6:  _song('Default',     BASE_C,   R,  'I Will Survive'),
+    7:  _song('High Energy', BASE_C,   R,  'Boys of Summer'),
+    8:  _song('Floyd',       BASE_G,   R,  'Have A Cigar'),
+    9:  _song('Atmospheric', BASE_A,   R,  'LA Woman'),
+    10: _song('Atmospheric', BIG_G,    R,  'Lost Together'),
+    11: _song('Atmospheric', BIG_C,    R,  'Lovesong'),
+    12: _song('High Energy', BASE_B,   R,  'Pump It Up'),
+    13: _song('Default',     BASE_D,   R,  'White Wedding'),
+    14: _song('Default',     BASE_BB,  R,  'Bad Guy'),
+    # pp=15 (A16): split off pp9, which used to be shared with LA Woman --
+    # its chart key (E) needs a different VE-500 patch than LA Woman's (A).
+    # MOX6 A16 duplicated from A10, BandHelper PP updated to 15 -- live as
+    # of 2026-08-19.
+    15: _song('Atmospheric', BASE_E,   R,  'Love Me Two Times'),
+    16: _song('Floyd',       LNGDLY_A, R,  'Time'),
+    17: _song('Floyd',       LNGDLY_A, R,  'Time'),
+    18: _song('Floyd',       LNGDLY_A, R,  'Time'),
+    32: _song('Default',     BIG_D,    CL, 'American Girl'),
+    33: _song('Default',     BASE_D,   R,  'Are You Gonna Be My Girl'),
+    34: _song('Default',     BIG_D,    R,  'Banditos'),
+    35: _song('Default',     BIG_C,    R,  'Brown Sugar'),
+    36: _song('Default',     BASE_A,   R,  'Courage'),
+    37: _song('Default',     BASE_E,   R,  'Fifty Mission Cap'),
+    38: _song('Default',     BASE_B,   R,  'Flagpole Sitta'),
+    39: _song('Default',     BASE_D,   R,  'Fortunate Son'),
+    40: _song('Default',     BIG_A,    CL, 'Here Comes My Girl'),
+    41: _song('Default',     BASE_A,   R,  'Hey Jealousy'),
+    42: _song('Default',     LOWOCT,   R,  'La Grange'),
+    43: _song('Default',     BASE_E,   R,  'Little Bones'),
+    44: _song('Default',     BASE_E,   CL, "Runnin' Down A Dream"),
+    45: _song('Default',     BASE_C,   CL, 'Santeria'),
+    46: _song('Default',     BASE_G,   R,  'Take Me Out'),
+    47: _song('Default',     BIG_G,    R,  'The Boys Are Back In Town'),
+    48: _song('Default',     BASE_C,   R,  'The Middle'),
+    49: _song('Default',     BASE_A,   R,  'Three Pistols'),
+    50: _song('Default',     BIG_G,    R,  'You May Be Right'),
+    51: _song('Default',     BASE_E,   R,  'You Wreck Me'),
+    52: _song('High Energy', BASE_B,   R,  'All The Small Things'),
+    53: _song('High Energy', BASE_E,   MT, 'Basket Case'),
+    54: _song('High Energy', SHOUT,    R,  'Blitzkrieg Bop'),
+    55: _song('High Energy', BASE_C,   R,  'Breaking The Law'),
+    56: _song('High Energy', SHOUT,    R,  'Fight For Your Right To Party'),
+    57: _song('High Energy', BASE_F,   R,  'Flavor Of The Weak'),
+    58: _song('High Energy', SHOUT,    R,  'I Wanna Be Sedated'),
+    59: _song('High Energy', BASE_G,   R,  'Mrs Robinson'),
+    60: _song('High Energy', SHOUT,    MT, 'One Eyed Bastard'),
+    61: _song('High Energy', BASE_B,   R,  'Ring Of Fire'),
+    62: _song('High Energy', BASE_E,   MT, 'Seek And Destroy'),
+    63: _song('High Energy', SHOUT,    R,  'The Rock Show'),
+    64: _song('High Energy', BASE_E,   MT, 'Welcome To Paradise'),
+    65: _song('High Energy', BASE_FS,  R,  "What's My Age Again"),
+    66: _song('High Energy', BIG_EM,   R,  'Young Lust'),
+    67: _song('Atmospheric', BASE_B,   R,  'Red House'),
+    68: _song('Atmospheric', BIG_E,    R,  'Roadhouse Blues'),
+    69: _song('Purple Rain', LNGDLY_A, R,  'Purple Rain'),
 }
 
-DEFAULT_SONG = _song('Default', BASE, R, '(unknown)')
+DEFAULT_SONG = _song('Default', BASE_A, R, '(unknown)')
 
 # ---------------------------------------------------------------------------
 # Lighting control notes from MOX6 (Bome Preset.0)
@@ -253,18 +281,43 @@ _note_q = _queue.Queue(maxsize=32)  # MIDI events; main loop never blocks
 # Port helpers
 # ---------------------------------------------------------------------------
 
+_input_scanner = None
+_output_scanner = None
+_input_scanner_lock = threading.Lock()
+_output_scanner_lock = threading.Lock()
+_input_ports_cache = []
+_output_ports_cache = []
+_input_ports_cached_at = 0.0
+_output_ports_cached_at = 0.0
+PORT_CACHE_S = 0.25
+
+
 def list_inputs():
-    tmp = rtmidi.MidiIn()
-    p = tmp.get_ports()
-    del tmp
-    return p
+    """List inputs through one persistent client (avoids ALSA client leaks)."""
+    global _input_scanner, _input_ports_cache, _input_ports_cached_at
+    with _input_scanner_lock:
+        now = time.monotonic()
+        if now - _input_ports_cached_at < PORT_CACHE_S:
+            return list(_input_ports_cache)
+        if _input_scanner is None:
+            _input_scanner = rtmidi.MidiIn()
+        _input_ports_cache = _input_scanner.get_ports()
+        _input_ports_cached_at = now
+        return list(_input_ports_cache)
 
 
 def list_outputs():
-    tmp = rtmidi.MidiOut()
-    p = tmp.get_ports()
-    del tmp
-    return p
+    """List outputs through one persistent client (thread-safe for monitors)."""
+    global _output_scanner, _output_ports_cache, _output_ports_cached_at
+    with _output_scanner_lock:
+        now = time.monotonic()
+        if now - _output_ports_cached_at < PORT_CACHE_S:
+            return list(_output_ports_cache)
+        if _output_scanner is None:
+            _output_scanner = rtmidi.MidiOut()
+        _output_ports_cache = _output_scanner.get_ports()
+        _output_ports_cached_at = now
+        return list(_output_ports_cache)
 
 
 def find_port(ports, fragment):
@@ -273,6 +326,47 @@ def find_port(ports, fragment):
         if fl in p.lower():
             return i
     return None
+
+
+def alsa_target_connected(port_name, relationship):
+    """Verify a target port still has its ALSA subscription.
+
+    ``relationship`` is the line shown on the target: ``Connected From`` for
+    a brain output, or ``Connecting To`` for a brain input. This supplements
+    port-name monitoring when ALSA quickly reuses the same client number.
+    Non-Linux platforms and unavailable procfs fail open to name monitoring.
+    """
+    if IS_WINDOWS:
+        return True
+    match = re.search(r'(\d+):(\d+)$', port_name or '')
+    if not match:
+        return True
+    wanted_client, wanted_port = map(int, match.groups())
+    try:
+        with open('/proc/asound/seq/clients', encoding='utf-8') as seq_file:
+            lines = seq_file.readlines()
+    except OSError:
+        return True
+
+    client = None
+    in_wanted_port = False
+    prefix = f'{relationship}:'
+    for line in lines:
+        client_match = re.match(r'Client\s+(\d+)\s+:', line)
+        if client_match:
+            client = int(client_match.group(1))
+            in_wanted_port = False
+            continue
+        port_match = re.match(r'\s+Port\s+(\d+)\s+:', line)
+        if port_match:
+            in_wanted_port = (
+                client == wanted_client and
+                int(port_match.group(1)) == wanted_port
+            )
+            continue
+        if in_wanted_port and line.strip().startswith(prefix):
+            return True
+    return False
 
 
 class DummyOut:
@@ -286,52 +380,195 @@ class DummyOut:
 
 
 class LazyMidiOut:
-    """MIDI output that auto-connects when the device appears.
+    """MIDI output that follows a hot-plugged/re-enumerated device.
 
-    If the target port isn't found at construction time, silently drops
-    messages and retries port discovery every 5 seconds on the next send.
-    Works on both Linux (no virtual-port fallback needed) and Windows.
+    ALSA silently removes a subscription when a USB MIDI device disappears;
+    RtMidi may still accept sends on that stale handle. Comparing the full
+    advertised port name catches re-enumeration and rebuilds the subscription.
     """
     def __init__(self, fragment, label):
         self._fragment = fragment
         self._label = label
         self._out = None
+        self._port_name = None
         self._last_scan = 0.0
         self._lock = threading.Lock()
-        self._try_connect()
+        self._stop = threading.Event()
+        with self._lock:
+            self._refresh_locked(force=True)
+        self._monitor = threading.Thread(
+            target=self._monitor_ports, daemon=True,
+            name=f'midi-out-{label}')
+        self._monitor.start()
 
-    def _try_connect(self):
-        ports = list_outputs()
+    def _disconnect_locked(self, reason=None):
+        old_name = self._port_name
+        if self._out is not None:
+            try:
+                self._out.close_port()
+            except Exception:
+                pass
+            try:
+                self._out.delete()
+            except Exception:
+                pass
+        self._out = None
+        self._port_name = None
+        if reason and old_name:
+            log.warning(f"{self._label}: disconnected ({reason}); waiting for device")
+
+    def _refresh_locked(self, force=False):
+        now = time.monotonic()
+        if not force and now - self._last_scan < PORT_SCAN_INTERVAL_S:
+            return
+        self._last_scan = now
+        try:
+            ports = list_outputs()
+        except Exception as e:
+            log.warning(f"{self._label}: port scan failed: {e}")
+            return
         idx = find_port(ports, self._fragment)
-        if idx is not None:
+        new_name = ports[idx] if idx is not None else None
+
+        if self._out is not None and new_name == self._port_name:
+            if alsa_target_connected(new_name, 'Connected From'):
+                return
+            self._disconnect_locked('ALSA subscription was lost')
+        if self._out is not None:
+            self._disconnect_locked('port disappeared or re-enumerated')
+        if idx is None:
+            return
+
+        out = None
+        try:
             out = rtmidi.MidiOut()
             out.open_port(idx)
-            self._out = out
-            log.info(f"{self._label}: {ports[idx]}")
+        except Exception as e:
+            if out is not None:
+                try:
+                    out.close_port()
+                except Exception:
+                    pass
+                try:
+                    out.delete()
+                except Exception:
+                    pass
+            log.warning(f"{self._label}: open failed for {new_name}: {e}")
+            return
+        self._out = out
+        self._port_name = new_name
+        log.info(f"{self._label}: connected {new_name}")
+
+    def _monitor_ports(self):
+        while not self._stop.wait(PORT_SCAN_INTERVAL_S):
+            with self._lock:
+                self._refresh_locked(force=True)
 
     def send_message(self, data):
         with self._lock:
-            if self._out is None:
-                now = time.time()
-                if now - self._last_scan >= 5.0:
-                    self._last_scan = now
-                    self._try_connect()
-            if self._out is not None:
+            self._refresh_locked()
+            for attempt in range(2):
+                if self._out is None:
+                    return False
                 try:
                     self._out.send_message(data)
+                    return True
                 except Exception as e:
-                    log.warning(f"{self._label}: send failed ({e}), will reconnect")
-                    try:
-                        self._out.close_port()
-                    except Exception:
-                        pass
-                    self._out = None
+                    log.warning(f"{self._label}: send failed ({e}); reconnecting")
+                    self._disconnect_locked()
+                    if attempt == 0:
+                        self._refresh_locked(force=True)
+            return False
 
     def close_port(self):
+        self._stop.set()
         with self._lock:
-            if self._out is not None:
-                self._out.close_port()
-                self._out = None
+            self._disconnect_locked()
+
+
+class DynamicMidiIn:
+    """Polling MIDI input that reopens after USB/service re-enumeration."""
+    def __init__(self, fragment, label):
+        self._fragment = fragment
+        self._label = label
+        self._in = None
+        self._port_name = None
+        self._last_scan = 0.0
+        self._refresh(force=True)
+
+    def _disconnect(self, reason=None):
+        old_name = self._port_name
+        if self._in is not None:
+            try:
+                self._in.close_port()
+            except Exception:
+                pass
+            try:
+                self._in.delete()
+            except Exception:
+                pass
+        self._in = None
+        self._port_name = None
+        if reason and old_name:
+            log.warning(f"{self._label}: disconnected ({reason}); waiting for device")
+
+    def _refresh(self, force=False):
+        now = time.monotonic()
+        if not force and now - self._last_scan < PORT_SCAN_INTERVAL_S:
+            return
+        self._last_scan = now
+        try:
+            ports = list_inputs()
+        except Exception as e:
+            log.warning(f"{self._label}: port scan failed: {e}")
+            return
+        idx = find_port(ports, self._fragment)
+        new_name = ports[idx] if idx is not None else None
+
+        if self._in is not None and new_name == self._port_name:
+            if alsa_target_connected(new_name, 'Connecting To'):
+                return
+            self._disconnect('ALSA subscription was lost')
+        if self._in is not None:
+            self._disconnect('port disappeared or re-enumerated')
+        if idx is None:
+            return
+
+        midi_in = None
+        try:
+            midi_in = rtmidi.MidiIn()
+            midi_in.open_port(idx)
+            midi_in.ignore_types(sysex=True, timing=True, active_sense=True)
+        except Exception as e:
+            if midi_in is not None:
+                try:
+                    midi_in.close_port()
+                except Exception:
+                    pass
+                try:
+                    midi_in.delete()
+                except Exception:
+                    pass
+            log.warning(f"{self._label}: open failed for {new_name}: {e}")
+            return
+        self._in = midi_in
+        self._port_name = new_name
+        log.info(f"{self._label}: connected {new_name}")
+
+    def get_message(self):
+        self._refresh()
+        if self._in is None:
+            return None
+        try:
+            return self._in.get_message()
+        except Exception as e:
+            log.warning(f"{self._label}: read failed ({e}); reconnecting")
+            self._disconnect()
+            self._refresh(force=True)
+            return None
+
+    def close_port(self):
+        self._disconnect()
 
 
 class RawMidiOut:
@@ -682,38 +919,16 @@ def main():
     osc_thread.start()
     log.info(f"OSC server listening on :{OSC_PORT}")
 
-    # --- MOX6 input (optional -- brain runs without it for BandHelper-only use) ---
-    midi_in_mox = None
-    idx_mox = find_port(in_ports, PORT_MOX6)
-    if idx_mox is not None:
-        midi_in_mox = rtmidi.MidiIn()
-        midi_in_mox.open_port(idx_mox)
-        midi_in_mox.ignore_types(sysex=True, timing=True, active_sense=True)
-        log.info(f"MOX6 in: {in_ports[idx_mox]}")
-    else:
-        log.warning(f"MOX6 not found ('{PORT_MOX6}') -- MOX6 input disabled")
-
-    # --- BandHelper input via rtpMIDI/rtpmidid (retry for startup) ---
-    midi_in_bh = None
-    for _attempt in range(BANDHELPER_RETRY_S):
-        _ports = list_inputs()
-        idx_bh = find_port(_ports, PORT_BANDHELPER)
-        if idx_bh is not None:
-            midi_in_bh = rtmidi.MidiIn()
-            midi_in_bh.open_port(idx_bh)
-            midi_in_bh.ignore_types(sysex=True, timing=True, active_sense=True)
-            log.info(f"BandHelper in: {_ports[idx_bh]}")
-            break
-        log.info(f"Waiting for '{PORT_BANDHELPER}'... ({_attempt+1}/{BANDHELPER_RETRY_S})")
-        time.sleep(1)
-    else:
-        log.warning(f"'{PORT_BANDHELPER}' not found after {BANDHELPER_RETRY_S}s -- BandHelper disabled")
+    # Inputs continuously follow device/service re-enumeration. The brain can
+    # start with either source absent and picks it up whenever it appears.
+    midi_in_mox = DynamicMidiIn(PORT_MOX6, 'MOX6 in')
+    midi_in_bh = DynamicMidiIn(PORT_BANDHELPER, 'BandHelper in')
 
     log.info("Brain running.")
     try:
         while True:
             # MOX6 → route everywhere except back to MOX6
-            msg = midi_in_mox.get_message() if midi_in_mox else None
+            msg = midi_in_mox.get_message()
             if msg:
                 data, _ = msg
                 if data:
@@ -727,16 +942,15 @@ def main():
                         except _queue.Full: log.warning("note queue full, dropping note")
 
             # BandHelper RTP MIDI → route everywhere including MOX6
-            if midi_in_bh:
-                msg = midi_in_bh.get_message()
-                if msg:
-                    data, _ = msg
-                    if data:
-                        status  = data[0] & 0xF0
-                        channel = (data[0] & 0x0F) + 1
-                        if channel == 1 and status == 0xC0 and len(data) >= 2:
-                            try: _note_q.put_nowait(('pc', data[1], mox_out))
-                            except _queue.Full: log.warning("note queue full, dropping BH PC")
+            msg = midi_in_bh.get_message()
+            if msg:
+                data, _ = msg
+                if data:
+                    status  = data[0] & 0xF0
+                    channel = (data[0] & 0x0F) + 1
+                    if channel == 1 and status == 0xC0 and len(data) >= 2:
+                        try: _note_q.put_nowait(('pc', data[1], mox_out))
+                        except _queue.Full: log.warning("note queue full, dropping BH PC")
 
             time.sleep(0.001)
 
@@ -744,12 +958,8 @@ def main():
         log.info("Stopped.")
     finally:
         osc_server.shutdown()
-        if midi_in_mox:
-            midi_in_mox.close_port()
-            del midi_in_mox
-        if midi_in_bh:
-            midi_in_bh.close_port()
-            del midi_in_bh
+        midi_in_mox.close_port()
+        midi_in_bh.close_port()
         hxstomp.close_port()
         ve500.close_port()
         qlc.close()
