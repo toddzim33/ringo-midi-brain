@@ -1,0 +1,14 @@
+[Unit]
+Description=Correlate Tailscale/RustDesk connectivity over time for drop diagnosis
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/conn-monitor.sh
+Restart=always
+RestartSec=5
+User=toddz
+
+[Install]
+WantedBy=multi-user.target
