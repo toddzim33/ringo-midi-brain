@@ -29,3 +29,12 @@ QLC+/*.bak
 
 # Logs
 *.log
+
+# Home-directory private/runtime files (this repo's work tree is ~, and the repo is public)
+/.*
+!/.gitignore
+/ai-context/
+/AGENTS.md
+/CLAUDE.md
+/Downloads/
+/Pictures/

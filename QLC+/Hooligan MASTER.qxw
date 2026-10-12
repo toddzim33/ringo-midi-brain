@@ -261,7 +261,7 @@
   <Function ID="0" Type="Chaser" Name="All Chasers - Slow">
    <Speed FadeIn="0" FadeOut="0" Duration="15000"/>
    <Direction>Forward</Direction>
-   <RunOrder>Loop</RunOrder>
+   <RunOrder>Random</RunOrder>
    <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
    <Step Number="0" FadeIn="0" Hold="15000" FadeOut="0">415</Step>
    <Step Number="1" FadeIn="0" Hold="15000" FadeOut="0">416</Step>
@@ -362,7 +362,7 @@
   <Function ID="18" Type="Chaser" Name="All Scene Chaser">
    <Speed FadeIn="1000" FadeOut="1000" Duration="11000"/>
    <Direction>Forward</Direction>
-   <RunOrder>Loop</RunOrder>
+   <RunOrder>Random</RunOrder>
    <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
    <Step Number="0" FadeIn="500" Hold="7000" FadeOut="0">131</Step>
    <Step Number="1" FadeIn="500" Hold="7000" FadeOut="0">162</Step>
