@@ -200,12 +200,13 @@ SONGS = {
     67: _song('Atmospheric', BASE_B,   R,  'Red House'),
     68: _song('Atmospheric', BIG_E,    R,  'Roadhouse Blues'),
     69: _song('Purple Rain', LNGDLY_A, R,  'Purple Rain'),
-    # added 2026-10-25 -- MOX6 masters E7-E11 still to be created on the keyboard
+    # added 2026-10-25 -- MOX6 masters E7-E12 still to be created on the keyboard
     70: _song('High Energy', BIG_A,    R,  'American Psycho'),
     71: _song('Default',     BASE_A,   R,  "Diggin' A Hole"),
     72: _song('Default',     BASE_A,   R,  'Psycho Killer'),
     73: _song('High Energy', BASE_E,   R,  'Round And Round'),
     74: _song('Default',     BASE_G,   R,  "She's So Cold"),
+    75: _song('Default',     BIG_G,    R,  'Low Rider'),
 }
 
 DEFAULT_SONG = _song('Default', BASE_A, R, '(unknown)')
