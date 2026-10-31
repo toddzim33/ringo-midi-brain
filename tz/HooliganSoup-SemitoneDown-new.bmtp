@@ -1,0 +1,80 @@
+; ------- Bome MIDI Translator: signed project file
+; ------- You can modify this file as you like, but that will invalidate the
+; ------- signature so that it cannot be opened in the BomeBox or MT Player anymore.
+;
+[Preset.0]
+Active=1
+Comments=
+DefaultOutPorts=MIDA00010009QLC_Input
+Incoming0=Prfm<Incoming Action="Perform"><Name>KillFunctions</Name></Incoming>
+Incoming1=Prfm<Incoming Action="Perform"><Name>UnBlackout</Name><Params>ss</Params></Incoming>
+Incoming2=MID3<Incoming Action="MIDI"><Ports><Port>Yamaha MOX6/MOX8-1</Port><Port>Constellation</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x23"/><Value2 num="0x00" Type="Any"/></Simple></Incoming>
+Incoming3=MID3<Incoming Action="MIDI"><Ports><Port>Yamaha MOX6/MOX8-1</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x25"/><Value2 num="0x00" Type="Any"/></Simple></Incoming>
+Incoming4=MID3<Incoming Action="MIDI"><Ports><Port>Yamaha MOX6/MOX8-1</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x24"/><Value2 var="oo" Type="SetVar"/></Simple></Incoming>
+Incoming5=MID3<Incoming Action="MIDI"><Ports><Port>Yamaha MOX6/MOX8-1</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x26"/><Value2 var="oo" Type="SetVar"/></Simple></Incoming>
+Incoming6=MID3<Incoming Action="MIDI"><Ports><Port>Yamaha MOX6/MOX8-1</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x27"/><Value2 num="0x00" Type="Any"/></Simple></Incoming>
+Incoming7=MID3<Incoming Action="MIDI"><Ports><Port>Yamaha MOX6/MOX8-1</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x28"/><Value2 num="0x00" Type="Any"/></Simple></Incoming>
+Incoming8=MID3<Incoming Action="MIDI"><Ports><Port>Yamaha MOX6/MOX8-1</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x29"/><Value2 num="0x00" Type="Any"/></Simple></Incoming>
+Name=Lighting
+Name0=Kill Functions Trigger
+Name1=Unblackout Trigger
+Name2=C2 - Prev Scene
+Name3=D2 - Next Scene
+Name4=C#2 - All Scene Chase or Base Scene
+Name5=D#2 - All Chase Chase or Strobe
+Name6=E2 - Prev Chase
+Name7=F2 - Next Chase
+Name8=F#2 - Blackout
+Options0=Actv01Stop00OutO00StMa00000001label0006__cmt>
+Options1=Actv01Stop00OutO00StMa00000003if(ss==1)tt=84elsett=110execute
+Options2=Actv01Stop00OutO00StMa00000008label0027__cmt>// Scene Decrement (C2 = Note 36)prfm>000F"KillFunctions"prfm>0010"UnBlackout", lbif(lb==1)lb=0if(ga==0)ga=9elsega=ga-1qq=ls+gaexecute
+Options3=Actv01Stop00OutO00StMa00000008label0027__cmt>// Scene Increment (D2 = Note 38)prfm>000F"KillFunctions"prfm>0010"UnBlackout", lbif(lb==1)lb=0if(ga==9)ga=0elsega=ga+1qq=ls+gaexecute
+Options4=Actv01Stop00OutO00StMa00000008label0021__cmt>// C#2 Velocity Conditionallabel0034__cmt>//if its soft all scene chaser else Base Sceneprfm>000F"KillFunctions"prfm>0010"UnBlackout", lbif(lb==1)lb=0if(oo>40)qq=83elseqq=80execute
+Options5=Actv01Stop00OutO00StMa00000008label002B__cmt>// D#2 Velocity Conditional (Note 43)prfm>000F"KillFunctions"prfm>0010"UnBlackout", lbif(lb==1)lb=0label0030__cmt>//if its soft all chase chaser else strobeif(oo<=40)qq=81elseqq=82execute
+Options6=Actv01Stop00OutO00StMa00000008label0027__cmt>// Chase Decrement (E2 = Note 40)prfm>000F"KillFunctions"prfm>0010"UnBlackout", lbif(lb==1)lb=0if(gb==0)gb=9elsegb=gb-1qq=lc+gbexecute
+Options7=Actv01Stop00OutO00StMa00000008label0027__cmt>// Chase Increment (F2 = Note 41)prfm>000F"KillFunctions"prfm>0010"UnBlackout", lbif(lb==1)lb=0if(gb==9)gb=0elsegb=gb+1qq=lc+gbexecute
+Options8=Actv01Stop00OutO00StMa00000005label001B__cmt>// Blackout (Note 54)if(lb==1)lb=0elselb=1qq=84execute
+Outgoing0=MID3<Outgoing Action="MIDI"><Ports><Port>QLC_Input</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 num="0x69"/><Value2 num="0x7F"/></Simple></Outgoing>
+Outgoing1=MID3<Outgoing Action="MIDI"><Ports><Port>QLC_Input</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 var="tt"/><Value2 num="0x7F"/></Simple></Outgoing>
+Outgoing2=MID3<Outgoing Action="MIDI"><Ports><Port>QLC_Input</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 var="qq"/><Value2 num="0x7F"/></Simple></Outgoing>
+Outgoing3=MID3<Outgoing Action="MIDI"><Ports><Port>QLC_Input</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 var="qq"/><Value2 num="0x7F"/></Simple></Outgoing>
+Outgoing4=MID3<Outgoing Action="MIDI"><Ports><Port>QLC_Input</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 var="qq"/><Value2 num="0x7F"/></Simple></Outgoing>
+Outgoing5=MID3<Outgoing Action="MIDI"><Ports><Port>QLC_Input</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 var="qq"/><Value2 num="0x7F"/></Simple></Outgoing>
+Outgoing6=MID3<Outgoing Action="MIDI"><Ports><Port>QLC_Input</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 var="qq"/><Value2 num="0x7F"/></Simple></Outgoing>
+Outgoing7=MID3<Outgoing Action="MIDI"><Ports><Port>QLC_Input</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 var="qq"/><Value2 num="0x7F"/></Simple></Outgoing>
+Outgoing8=MID3<Outgoing Action="MIDI"><Ports><Port>QLC_Input</Port></Ports><Simple Type="NoteOn"><Channel num="0"/><Value1 var="qq"/><Value2 num="0x7F"/></Simple></Outgoing>
+PresetSwitchIgnore=0
+
+[Preset.1]
+Active=1
+Comments=
+DefaultInPorts=MIDA00010012Yamaha MOX6/MOX8-1
+Incoming0=MID3<Incoming Action="MIDI"><Ports><Port>Yamaha MOX6/MOX8-1</Port><Port>Constellation</Port><Port>Line 6 HX Stomp</Port></Ports><Simple Type="ProgramChange"><Channel num="0"/><Value1 var="pp" Type="SetVar"/></Simple></Incoming>
+Incoming1=Prfm<Incoming Action="Perform"><Name>VE500PC</Name></Incoming>
+Incoming2=Prfm<Incoming Action="Perform"><Name>Stomp</Name><Params>rr</Params></Incoming>
+Incoming3=Prfm<Incoming Action="Perform"><Name>Stomp</Name><Params>rr</Params></Incoming>
+Name=HX Stomp XL
+Name0=Incoming PC
+Name1=VE-500 PC
+Name2=Stomp PC
+Name3=Stomp CC
+Options0=Actv01Stop00OutO00StMa00000086label0027__cmt>// pp is program # sent from Mox6label0025__cmt>// remember prog #'s start at 0label0018__cmt>// so Master A1==0ls=60lc=70rr=116vv=0if(pp==1)ls=0if(pp==1)lc=10if(pp==2)ls=0if(pp==2)lc=10if(pp==4)ls=85if(pp==4)lc=95if(pp==7)ls=0if(pp==7)lc=10if(pp==7)vv=1if(pp==8)ls=85if(pp==8)lc=95if(pp==9)ls=20if(pp==9)lc=30if(pp==10)ls=20if(pp==10)lc=30if(pp==11)ls=20if(pp==11)lc=30if(pp==12)ls=0if(pp==12)lc=10if(pp==16)ls=85if(pp==16)lc=95if(pp==17)ls=85if(pp==17)lc=95if(pp==18)ls=85if(pp==18)lc=95if(pp==52)ls=0if(pp==52)lc=10if(pp==53)ls=0if(pp==53)lc=10if(pp==54)ls=0if(pp==54)lc=10if(pp==55)ls=0if(pp==55)lc=10if(pp==56)ls=0if(pp==56)lc=10if(pp==57)ls=0if(pp==57)lc=10if(pp==58)ls=0if(pp==58)lc=10if(pp==59)ls=0if(pp==59)lc=10if(pp==60)ls=0if(pp==60)lc=10if(pp==61)ls=0if(pp==61)lc=10if(pp==62)ls=0if(pp==62)lc=10if(pp==63)ls=0if(pp==63)lc=10if(pp==64)ls=0if(pp==64)lc=10if(pp==65)ls=0if(pp==65)lc=10if(pp==66)ls=0if(pp==66)lc=10if(pp==67)ls=20if(pp==67)lc=30if(pp==68)ls=20if(pp==68)lc=30if(pp==69)ls=40if(pp==69)lc=50if(pp==32)rr=117if(pp==40)rr=117if(pp==44)rr=117if(pp==45)rr=117if(pp==53)rr=118if(pp==60)rr=118if(pp==62)rr=118if(pp==64)rr=118label0006__cmt>label000E__cmt>//VE-500label0025__cmt>// LA Woman / Love Me Two Timesif(pp==9)vv=1label0016__cmt>// Lost Togetherif(pp==10)vv=1label0014__cmt>// Brown Sugarif(pp==35)vv=1label0018__cmt>// Roadhouse Bluesif(pp==68)vv=1label0006__cmt>label0016__cmt>// American Girlif(pp==32)vv=2label0022__cmt>// The Boys Are Back In Townif(pp==47)vv=2label0019__cmt>// You May Be Rightif(pp==50)vv=2label0006__cmt>label0011__cmt>// Banditosif(pp==34)vv=3label001B__cmt>// Here Comes My Girlif(pp==40)vv=3label0013__cmt>// Young Lustif(pp==66)vv=3label0006__cmt>label0017__cmt>// Blitzkrieg Bopif(pp==54)vv=4label001D__cmt>// Fight For Your Rightif(pp==56)vv=4label001B__cmt>// I Wanna Be Sedatedif(pp==58)vv=4label0019__cmt>// One Eyed Bastardif(pp==60)vv=4label0016__cmt>// The Rock Showif(pp==63)vv=4label0006__cmt>label0012__cmt>// La Grangeif(pp==42)vv=6label0012__cmt>// Red Houseif(pp==67)vv=6label0006__cmt>label0019__cmt>// Comfortably Numbif(pp==4)vv=7label0015__cmt>// Have A Cigarif(pp==8)vv=7label0011__cmt>// Lovesongif(pp==11)vv=7label000D__cmt>// Timeif(pp==16)vv=7label000D__cmt>// Timeif(pp==17)vv=7label000D__cmt>// Timeif(pp==18)vv=7label0014__cmt>// Purple Rainif(pp==69)vv=7gc=vvprfm>0009"VE500PC"execute
+Options1=Actv01Stop00OutO00
+Options2=Actv01Stop00OutO00
+Options3=Actv01Stop00OutO00Dlay100:Millis
+Outgoing0=Prfm<Outgoing Action="Perform"><Name>Stomp</Name><Params>rr</Params></Outgoing>
+Outgoing1=MID3<Outgoing Action="MIDI"><Ports><Port>VE-500</Port></Ports><Simple Type="ProgramChange"><Channel num="0"/><Value1 var="gc"/></Simple></Outgoing>
+Outgoing2=MID3<Outgoing Action="MIDI"><Ports><Port>Line 6 HX Stomp</Port><Port>QLC_Input</Port></Ports><Simple Type="ProgramChange"><Channel num="0"/><Value1 var="rr"/></Simple></Outgoing>
+Outgoing3=MID3<Outgoing Action="MIDI"><Ports><Port>Line 6 HX Stomp</Port><Port>QLC_Input</Port></Ports><Simple Type="ControlChange"><Channel num="0"/><Value1 num="0x45"/><Value2 num="0x00"/></Simple></Outgoing>
+PresetSwitchIgnore=0
+
+[Project]
+DefaultInPorts=MIDA00030012Yamaha MOX6/MOX8-1000DConstellation000FLine 6 HX Stomp
+DefaultOutPorts=MIDA00030009QLC_Input000FLine 6 HX Stomp0006VE-500
+Version=2
+
+[Signatures]
+SigName-1=[Midi Translator Pro Internal]
+Signature-1=cEvZQBDXT2eKRBTjqCBIAbKyniSWn4//3boGEs7b1dUkaCZiu0muxKmpAN3rc0xMjC+VzYFsOipwYJo6l8KoR2viGadcA855HUxpl5KJonpGoph1ydLXuzgDEAGKkuhdfwIwXR+FuieQW1WR4XjBJyxzv0lGJ4VeeCPSW2tg5NI=
+SignedBy-1=UBC
+
