@@ -207,7 +207,7 @@ SONGS = {
     73: _song('High Energy', BASE_E,   R,  'Round And Round'),
     74: _song('Default',     BASE_G,   R,  "She's So Cold"),
     75: _song('Default',     BIG_G,    R,  'Low Rider'),
-    76: _song('Default',     BIG_D,    R,  'Just What I Needed'),
+    76: _song('Default',     BIG_E,    R,  'Just What I Needed'),
 }
 
 DEFAULT_SONG = _song('Default', BASE_A, R, '(unknown)')
